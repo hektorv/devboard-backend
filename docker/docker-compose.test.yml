@@ -1,0 +1,21 @@
+version: '3.8'
+services:
+  mysql_test:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: example
+      MYSQL_DATABASE: devboard_test
+      MYSQL_USER: devboard
+      MYSQL_PASSWORD: devboard
+    ports:
+      - "3307:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - mysql_test_data:/var/lib/mysql
+
+volumes:
+  mysql_test_data:

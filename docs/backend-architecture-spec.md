@@ -4,7 +4,7 @@
 
 Definir una arquitectura **API-first** para el backend de DevBoard (gestión de proyectos y tareas) con:
 
-* Backend en Python (**Flask**) con **TDD** desde el inicio.
+* Backend en Python (**FastAPI**) con **TDD** desde el inicio.
 * Contrato único mediante **OpenAPI** (fuente de verdad).
 * Buenas prácticas: configuración por `.env`, **sin números mágicos**, separación estricta de responsabilidades, observabilidad y testabilidad.
 * Backend diseñado para operar como **repositorio independiente** del frontend (sin mezclar tooling, carpetas ni dependencias).
@@ -38,16 +38,16 @@ No incluye (MVP):
 ### 3.1 API-first (contrato por delante)
 
 * OpenAPI define rutas, payloads, enums, errores, filtros.
-* Backend implementa exactamente OpenAPI.
-* Cambios de contrato deben hacerse primero en OpenAPI y luego en backend.
+* The project prefers **contract-first**: `docs/oas.yml` is the source of truth. Changes to the public API should be proposed in `docs/oas.yml` and accompanied by contract tests.
+* FastAPI generates OpenAPI definitions automatically from code, but maintain the practice of editing `docs/oas.yml` first and validating generated spec against it (see Developer / Contract workflow).
 
 ### 3.2 Separación de capas (backend)
 
-* **Routers (HTTP/REST)**: endpoints, parseo, validación superficial, serialización, mapeo de errores a HTTP.
+* **Routers (HTTP/REST)**: endpoints, parseo, validation is mostly handled by Pydantic models, serialization, and mapping of domain errors to HTTP responses. Use FastAPI `APIRouter` and dependency injection for cross-cutting concerns.
 * **Services (domain/business)**: reglas del dominio y validaciones de negocio (incluye consistencia Project↔Task, restricciones por estado, etc.).
 * **Repositories (data access)**: operaciones de persistencia y consultas (ORM).
 * **Models (ORM)**: entidades SQLAlchemy y relaciones.
-* **Schemas/DTOs**: objetos de entrada/salida internos para evitar filtrar ORM en la API.
+* **Schemas/DTOs**: Prefer **Pydantic** models for request/response validation. Keep separate DTOs from ORM models to avoid leaking persistence details into the API.
 * **Config**: configuración por entorno y validación en arranque.
 * **Utils (cross-cutting)**: decoradores, helpers; nunca lógica de negocio.
 
@@ -67,10 +67,14 @@ No incluye (MVP):
 
 ### 4.1 Routers
 
+Use FastAPI `APIRouter` for modular routers. Example routers to implement:
+
 * `HealthRouter`: endpoint de salud.
 * `ProjectRouter`: CRUD Projects + cambio de estado.
 * `TaskRouter`: CRUD Tasks scoped por project + cambio de estado.
 * `UserRouter`: CRUD Users.
+
+Prefer dependency injection (FastAPI `Depends`) for acquiring services and DB sessions inside route handlers.
 
 Responsabilidad: HTTP, no negocio.
 
@@ -183,6 +187,7 @@ Ubicación transversal:
 * `name` (required)
 * `description` (nullable)
 * `status` (enum: ACTIVE, ON_HOLD, ARCHIVED)
+* `finished_at` (nullable timestamp) — set when project transitions to `ARCHIVED`
 * `created_at`
 
 **User** *(sin autenticación en MVP)*
@@ -190,6 +195,7 @@ Ubicación transversal:
 * `id` (PK)
 * `display_name` (required)
 * `email` (recommended; si se incluye: unique)
+  - Decision: `email` **is required and unique** for MVP to allow user identification when assigning tasks.
 * `is_active` (bool, default true)
 * `created_at`
 
@@ -287,6 +293,7 @@ Recomendado (MVP):
 **Projects**
 
 * `GET /api/projects`
+  * Query params: `page` (1-based, default=1), `per_page` (default=20, max=100)
 * `POST /api/projects`
 * `GET /api/projects/{projectId}`
 * `PUT /api/projects/{projectId}`
@@ -296,11 +303,134 @@ Recomendado (MVP):
 **Tasks (scoped por project)**
 
 * `GET /api/projects/{projectId}/tasks` (filtros: status, priority, assignee_user_id, q)
+  * Query params: `page` (1-based, default=1), `per_page` (default=20, max=100)
 * `POST /api/projects/{projectId}/tasks`
 * `GET /api/projects/{projectId}/tasks/{taskId}`
 * `PUT /api/projects/{projectId}/tasks/{taskId}`
 * `DELETE /api/projects/{projectId}/tasks/{taskId}`
 * `PATCH /api/projects/{projectId}/tasks/{taskId}/status`
+
+---
+
+### 8.3 Developer / Contract workflow (OpenAPI)
+
+* **Source of truth**: `docs/oas.yml` (OpenAPI). Any change to API routes, payloads, enums or error shapes should be made in the OpenAPI file before implementation whenever possible.
+* **Recommended flow** (contract-first): edit `docs/oas.yml` → open PR updating spec and adding/adjusting contract tests → implement backend changes → validate generated OpenAPI from FastAPI against the `docs/oas.yml` in CI.
+* **Contract tests**: add a lightweight contract test that validates router responses against the OpenAPI schemas (tools: `schemathesis`, `openapi-core`, or `openapi-spec-validator`). FastAPI auto-generates OpenAPI JSON at runtime ( `/openapi.json` ); use this to validate parity with `docs/oas.yml`.
+
+---
+
+## 6.x State transitions (clarify)
+
+Define exact allowed transitions to remove ambiguity when implementing services/validations:
+
+TaskStatus (recommended):
+
+* BACKLOG -> IN_PROGRESS
+* IN_PROGRESS -> DONE
+* DONE -> (optional) IN_PROGRESS (if revert is allowed) — decide and document. Default: allow revert to IN_PROGRESS for flexibility.
+
+ProjectStatus (recommended):
+
+* ACTIVE -> ON_HOLD
+* ON_HOLD -> ACTIVE
+* ACTIVE|ON_HOLD -> ARCHIVED (ARCHIVED is terminal and read-only)
+
+Add a short table in this doc or in `docs/project-spec.md` enumerating allowed transitions and the business rationale.
+
+---
+
+## 2.x Deletion semantics (recommended)
+
+To avoid accidental loss and to support easy rollback during development, adopt **soft delete** as the default strategy for the MVP unless there is a business need for hard delete.
+
+* Add `deleted_at` (nullable) to `projects` and `tasks` (optional for `users`).
+* API conventions:
+  * `GET` endpoints exclude deleted items by default; provide `?include_deleted=true` to list them.
+  * `DELETE /api/projects/{id}` sets `deleted_at` if soft delete is enabled. Optionally provide `DELETE ?hard=true` for an explicit hard delete, guarded by a higher-level decision.
+* If the chosen strategy is hard-delete, keep the recommended safeguard: return HTTP 409 when attempting to delete a project that still has tasks (avoid cascading deletes by default).
+
+---
+
+## 9.x Error codes and examples
+
+Standard error shape:
+
+```json
+{
+  "error_code": "STRING_CODE",
+  "message": "Human readable message",
+  "details": { "field": "info" },
+  "trace_id": "optional-id"
+}
+```
+
+Suggested `error_code` examples to use consistently in the repo:
+
+* `VALIDATION_ERROR` (400)
+* `NOT_FOUND` (404)
+* `CONFLICT_PROJECT_HAS_TASKS` (409) — when deleting a project that contains tasks
+* `CONFLICT_BUSINESS_RULE` (409) — general conflict for domain rule violations
+* `INTERNAL_ERROR` (500)
+
+Provide concrete examples in the OpenAPI `responses` section for each endpoint that can return the error.
+
+---
+
+## 12.x Test strategy (clarified)
+
+* Use MySQL in tests (Docker) to match production behavior. Recommended approach for speed and isolation:
+  * Use a dedicated `docker/docker-compose.test.yml` that brings up MySQL for the test run.
+  * Use pytest with transactional tests when possible (rollback between tests) or truncate tables deterministically between tests.
+  * Add a lightweight CI job that boots the MySQL service and runs `pytest -q --maxfail=1 --cov=app`.
+* Add a simple `Makefile` or `scripts/test.sh` to standardize how tests are run locally and in CI.
+
+---
+
+## 11.x Observability (note)
+
+* Structured logging (JSON) with `request_id` and `elapsed_ms` is recommended.
+* OpenTelemetry tracing is optional for MVP; add a small integration in a follow-up PR if needed.
+
+---
+
+## Appendix: Example payloads
+
+Create Project
+
+```json
+POST /api/projects
+{
+  "name": "Website Redesign",
+  "description": "Redesign corporate website",
+  "status": "ACTIVE"
+}
+```
+
+Create Task (scoped under project)
+
+```json
+POST /api/projects/1/tasks
+{
+  "title": "Create wireframes",
+  "description": "Low fidelity wireframes for homepage",
+  "status": "BACKLOG",
+  "priority": "MEDIUM",
+  "assignee_user_id": null
+}
+```
+
+Error example (409)
+
+```json
+HTTP/1.1 409 Conflict
+{
+  "error_code": "CONFLICT_PROJECT_HAS_TASKS",
+  "message": "Cannot delete project with existing tasks",
+  "details": { "project_id": 1 }
+}
+```
+
 
 ---
 

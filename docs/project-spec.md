@@ -160,3 +160,13 @@ Relación:
 
 ---
 
+## Aclaraciones para implementación (rápido)
+
+Estas aclaraciones eliminan ambigüedades para la fase de implementación (MVP):
+
+- **Transiciones de estado (Tasks):** BACKLOG -> IN_PROGRESS -> DONE. Se permite volver de DONE -> IN_PROGRESS (revert) si hay una razón justificada; documentar el caso en la PR.
+- **Transiciones de estado (Projects):** ACTIVE ↔ ON_HOLD, y ACTIVE|ON_HOLD -> ARCHIVED. `ARCHIVED` es terminal y no permite cambios en proyecto ni en tareas.
+- **Eliminación de Projects:** por defecto usar **soft delete** (`deleted_at`) para `projects` y `tasks` en el MVP. Si se opta por hard-delete, debe documentarse y dejarse claro que `DELETE` sobre un proyecto con tareas debe responder `409 CONFLICT` a menos que `?hard=true` se solicite y se apruebe explícitamente.
+
+Estas decisiones deben estar sincronizadas con `docs/backend-architecture-spec.md` y `docs/oas.yml`.
+
