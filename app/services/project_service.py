@@ -3,6 +3,7 @@ from app.repositories.task_repository import TaskRepository
 from app.models.project import Project, ProjectStatus
 from sqlalchemy.orm import Session
 from app.errors import NotFoundError, ConflictError
+from app.utils.logging_decorator import service_log
 
 
 class ProjectService:
@@ -11,19 +12,23 @@ class ProjectService:
         self.repo = ProjectRepository(db)
         self.task_repo = TaskRepository(db)
 
+    @service_log
     def create(self, name: str, description: str = None, status: ProjectStatus = ProjectStatus.ACTIVE):
         project = Project(name=name, description=description, status=status)
         return self.repo.create(project)
 
+    @service_log
     def get(self, project_id: int):
         project = self.repo.get(project_id)
         if not project:
             raise NotFoundError("Project not found")
         return project
 
+    @service_log
     def list(self):
         return self.repo.list()
 
+    @service_log
     def list_paginated(self, page: int = 1, per_page: int = 20):
         if page < 1:
             page = 1
@@ -37,6 +42,7 @@ class ProjectService:
             "total": total,
         }
 
+    @service_log
     def delete(self, project_id: int):
         project = self.repo.get(project_id)
         if not project:
@@ -47,6 +53,7 @@ class ProjectService:
         # Soft delete by default
         self.repo.soft_delete(project)
 
+    @service_log
     def update(self, project_id: int, **patch):
         project = self.get(project_id)
         # Handle status change side-effects

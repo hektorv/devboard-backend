@@ -1,16 +1,18 @@
 from fastapi.testclient import TestClient
 from app.main import app
+from uuid import uuid4
 
 
 def test_create_user_and_unique_email():
     client = TestClient(app)
-    resp = client.post("/api/users", json={"display_name": "Alice", "email": "alice@example.com"})
+    email = f"alice+{uuid4().hex}@example.com"
+    resp = client.post("/api/users", json={"display_name": "Alice", "email": email})
     assert resp.status_code == 201
     user = resp.json()["data"]
-    assert user["email"] == "alice@example.com"
+    assert user["email"] == email
 
     # duplicate
-    resp = client.post("/api/users", json={"display_name": "Alice2", "email": "alice@example.com"})
+    resp = client.post("/api/users", json={"display_name": "Alice2", "email": email})
     assert resp.status_code == 409
 
 

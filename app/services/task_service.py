@@ -3,6 +3,7 @@ from app.repositories.task_repository import TaskRepository
 from app.repositories.project_repository import ProjectRepository
 from app.models.task import Task, TaskStatus
 from app.errors import NotFoundError
+from app.utils.logging_decorator import service_log
 
 
 class TaskService:
@@ -11,6 +12,7 @@ class TaskService:
         self.repo = TaskRepository(db)
         self.project_repo = ProjectRepository(db)
 
+    @service_log
     def create(self, project_id: int, title: str, description: str = None, status: TaskStatus = TaskStatus.BACKLOG, priority=None, assignee_user_id: int = None):
         # ensure project exists
         project = self.project_repo.get(project_id)
@@ -19,15 +21,18 @@ class TaskService:
         task = Task(project_id=project_id, title=title, description=description, status=status, priority=priority, assignee_user_id=assignee_user_id)
         return self.repo.create(task)
 
+    @service_log
     def get(self, task_id: int):
         task = self.db.query(Task).filter(Task.id == task_id, Task.deleted_at.is_(None)).first()
         if not task:
             raise NotFoundError("Task not found")
         return task
 
+    @service_log
     def list_by_project(self, project_id: int):
         return self.repo.by_project(project_id)
 
+    @service_log
     def update(self, task_id: int, **patch):
         task = self.get(task_id)
         status = patch.get("status")
@@ -52,6 +57,7 @@ class TaskService:
         self.db.refresh(task)
         return task
 
+    @service_log
     def delete(self, task_id: int):
         task = self.get(task_id)
         from datetime import datetime, timezone

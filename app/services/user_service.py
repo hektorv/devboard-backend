@@ -2,6 +2,7 @@ from app.repositories.user_repository import UserRepository
 from app.models.user import User
 from sqlalchemy.orm import Session
 from app.errors import ConflictError, NotFoundError
+from app.utils.logging_decorator import service_log
 
 
 class UserService:
@@ -9,19 +10,26 @@ class UserService:
         self.db = db
         self.repo = UserRepository(db)
 
+    @service_log
     def create(self, display_name: str, email: str):
+        """Create a new user.
+
+        Logged by `service_log` decorator.
+        """
         existing = self.repo.by_email(email)
         if existing:
             raise ConflictError("User with that email already exists")
         user = User(display_name=display_name, email=email)
         return self.repo.create(user)
 
+    @service_log
     def get(self, user_id: int):
         user = self.repo.get(user_id)
         if not user:
             raise NotFoundError("User not found")
         return user
 
+    @service_log
     def list_paginated(self, page: int = 1, per_page: int = 20):
         if page < 1:
             page = 1
@@ -30,6 +38,7 @@ class UserService:
         items, total = self.repo.list_paginated(offset, per_page)
         return {"items": items, "page": page, "per_page": per_page, "total": total}
 
+    @service_log
     def update(self, user_id: int, **patch):
         user = self.get(user_id)
         if "email" in patch and patch["email"] is not None:
@@ -41,6 +50,7 @@ class UserService:
                 setattr(user, k, v)
         return self.repo.update(user)
 
+    @service_log
     def deactivate(self, user_id: int):
         user = self.get(user_id)
         user.is_active = False
