@@ -1,0 +1,857 @@
+openapi: 3.0.3
+info:
+  title: DevBoard API
+  version: "1.0.0"
+  description: >
+    DevBoard backend API (Projects, Tasks, Users). No authentication in MVP.
+servers:
+  - url: http://localhost:5000
+    description: Local backend
+tags:
+  - name: Health
+  - name: Users
+  - name: Projects
+  - name: Tasks
+paths:
+  /api/health:
+    get:
+      tags: [Health]
+      summary: Health check
+      operationId: healthCheck
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /api/users:
+    get:
+      tags: [Users]
+      summary: List users
+      operationId: listUsers
+      parameters:
+        - $ref: "#/components/parameters/IsActiveQuery"
+        - $ref: "#/components/parameters/QQuery"
+        - $ref: "#/components/parameters/LimitQuery"
+        - $ref: "#/components/parameters/OffsetQuery"
+      responses:
+        "200":
+          description: Users list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      tags: [Users]
+      summary: Create user
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserCreateRequest"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/users/{user_id}:
+    parameters:
+      - $ref: "#/components/parameters/UserIdPath"
+    get:
+      tags: [Users]
+      summary: Get user by id
+      operationId: getUser
+      responses:
+        "200":
+          description: User
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    put:
+      tags: [Users]
+      summary: Update user
+      operationId: updateUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdateRequest"
+      responses:
+        "200":
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      tags: [Users]
+      summary: Deactivate user (soft delete)
+      operationId: deactivateUser
+      responses:
+        "204":
+          description: User deactivated
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/projects:
+    get:
+      tags: [Projects]
+      summary: List projects
+      operationId: listProjects
+      parameters:
+        - $ref: "#/components/parameters/ProjectStatusQuery"
+        - $ref: "#/components/parameters/QQuery"
+        - $ref: "#/components/parameters/LimitQuery"
+        - $ref: "#/components/parameters/OffsetQuery"
+      responses:
+        "200":
+          description: Projects list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      tags: [Projects]
+      summary: Create project
+      operationId: createProject
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectCreateRequest"
+      responses:
+        "201":
+          description: Project created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/projects/{project_id}:
+    parameters:
+      - $ref: "#/components/parameters/ProjectIdPath"
+    get:
+      tags: [Projects]
+      summary: Get project by id
+      operationId: getProject
+      responses:
+        "200":
+          description: Project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    put:
+      tags: [Projects]
+      summary: Update project
+      operationId: updateProject
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectUpdateRequest"
+      responses:
+        "200":
+          description: Project updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      tags: [Projects]
+      summary: Delete project
+      description: May be rejected if project has tasks (business rule).
+      operationId: deleteProject
+      responses:
+        "204":
+          description: Project deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/projects/{project_id}/status:
+    parameters:
+      - $ref: "#/components/parameters/ProjectIdPath"
+    patch:
+      tags: [Projects]
+      summary: Change project status
+      operationId: changeProjectStatus
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectStatusPatchRequest"
+      responses:
+        "200":
+          description: Project status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/projects/{project_id}/tasks:
+    parameters:
+      - $ref: "#/components/parameters/ProjectIdPath"
+    get:
+      tags: [Tasks]
+      summary: List tasks for a project
+      operationId: listTasksByProject
+      parameters:
+        - $ref: "#/components/parameters/TaskStatusQuery"
+        - $ref: "#/components/parameters/TaskPriorityQuery"
+        - $ref: "#/components/parameters/AssigneeUserIdQuery"
+        - $ref: "#/components/parameters/QQuery"
+        - $ref: "#/components/parameters/LimitQuery"
+        - $ref: "#/components/parameters/OffsetQuery"
+      responses:
+        "200":
+          description: Tasks list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      tags: [Tasks]
+      summary: Create task in a project
+      operationId: createTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskCreateRequest"
+      responses:
+        "201":
+          description: Task created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/projects/{project_id}/tasks/{task_id}:
+    parameters:
+      - $ref: "#/components/parameters/ProjectIdPath"
+      - $ref: "#/components/parameters/TaskIdPath"
+    get:
+      tags: [Tasks]
+      summary: Get task by id (scoped to project)
+      operationId: getTask
+      responses:
+        "200":
+          description: Task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    put:
+      tags: [Tasks]
+      summary: Update task
+      operationId: updateTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskUpdateRequest"
+      responses:
+        "200":
+          description: Task updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      tags: [Tasks]
+      summary: Delete task
+      operationId: deleteTask
+      responses:
+        "204":
+          description: Task deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/projects/{project_id}/tasks/{task_id}/status:
+    parameters:
+      - $ref: "#/components/parameters/ProjectIdPath"
+      - $ref: "#/components/parameters/TaskIdPath"
+    patch:
+      tags: [Tasks]
+      summary: Change task status
+      operationId: changeTaskStatus
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskStatusPatchRequest"
+      responses:
+        "200":
+          description: Task status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+components:
+  parameters:
+    ProjectIdPath:
+      name: project_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    TaskIdPath:
+      name: task_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    UserIdPath:
+      name: user_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+
+    LimitQuery:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        maximum: 200
+        default: 50
+    OffsetQuery:
+      name: offset
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int32
+        minimum: 0
+        default: 0
+    QQuery:
+      name: q
+      in: query
+      required: false
+      description: Free-text search query (implementation-defined; typically matches title/description).
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 200
+
+    ProjectStatusQuery:
+      name: status
+      in: query
+      required: false
+      schema:
+        $ref: "#/components/schemas/ProjectStatus"
+    TaskStatusQuery:
+      name: status
+      in: query
+      required: false
+      schema:
+        $ref: "#/components/schemas/TaskStatus"
+    TaskPriorityQuery:
+      name: priority
+      in: query
+      required: false
+      schema:
+        $ref: "#/components/schemas/TaskPriority"
+
+    AssigneeUserIdQuery:
+      name: assignee_user_id
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+
+    IsActiveQuery:
+      name: is_active
+      in: query
+      required: false
+      schema:
+        type: boolean
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Conflict:
+      description: Conflict / business rule violation
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    # ===== Enums =====
+    ProjectStatus:
+      type: string
+      enum: [ACTIVE, ON_HOLD, ARCHIVED]
+    TaskStatus:
+      type: string
+      enum: [BACKLOG, IN_PROGRESS, DONE]
+    TaskPriority:
+      type: string
+      enum: [LOW, MEDIUM, HIGH]
+
+    # ===== Common =====
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          example: ok
+
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [error_code, message]
+      properties:
+        error_code:
+          type: string
+          example: validation_error
+        message:
+          type: string
+          example: Invalid request payload
+        details:
+          type: object
+          additionalProperties: true
+        trace_id:
+          type: string
+          description: Optional correlation id
+          example: "c3f1b9a4-2c5d-4d0f-9b1f-91a64b7a2b3d"
+
+    # ===== Users =====
+    User:
+      type: object
+      additionalProperties: false
+      required: [id, display_name, is_active, created_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        email:
+          type: string
+          format: email
+          nullable: true
+          maxLength: 254
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    UserCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [display_name]
+      properties:
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        email:
+          type: string
+          format: email
+          nullable: true
+          maxLength: 254
+        is_active:
+          type: boolean
+          default: true
+
+    UserUpdateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        email:
+          type: string
+          format: email
+          nullable: true
+          maxLength: 254
+        is_active:
+          type: boolean
+
+    UserResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/User"
+
+    UserListResponse:
+      type: object
+      additionalProperties: false
+      required: [data, paging]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/User"
+        paging:
+          $ref: "#/components/schemas/Paging"
+
+    # ===== Projects =====
+    Project:
+      type: object
+      additionalProperties: false
+      required: [id, name, status, created_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: string
+          nullable: true
+          maxLength: 2000
+        status:
+          $ref: "#/components/schemas/ProjectStatus"
+        created_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Project closure timestamp (set when project is closed/archived, per business rules).
+
+    ProjectCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: string
+          nullable: true
+          maxLength: 2000
+
+    ProjectUpdateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: string
+          nullable: true
+          maxLength: 2000
+
+    ProjectStatusPatchRequest:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          $ref: "#/components/schemas/ProjectStatus"
+
+    ProjectResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/Project"
+
+    ProjectListResponse:
+      type: object
+      additionalProperties: false
+      required: [data, paging]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Project"
+        paging:
+          $ref: "#/components/schemas/Paging"
+
+    # ===== Tasks =====
+    Task:
+      type: object
+      additionalProperties: false
+      required: [id, project_id, title, status, priority, created_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        project_id:
+          type: integer
+          format: int64
+          minimum: 1
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          nullable: true
+          maxLength: 5000
+        status:
+          $ref: "#/components/schemas/TaskStatus"
+        priority:
+          $ref: "#/components/schemas/TaskPriority"
+        assignee_user_id:
+          type: integer
+          format: int64
+          minimum: 1
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Task completion timestamp (set when task reaches DONE, per business rules).
+        deleted_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    TaskCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          nullable: true
+          maxLength: 5000
+        status:
+          $ref: "#/components/schemas/TaskStatus"
+        priority:
+          $ref: "#/components/schemas/TaskPriority"
+        assignee_user_id:
+          type: integer
+          format: int64
+          minimum: 1
+          nullable: true
+
+    TaskUpdateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          nullable: true
+          maxLength: 5000
+        priority:
+          $ref: "#/components/schemas/TaskPriority"
+        assignee_user_id:
+          type: integer
+          format: int64
+          minimum: 1
+          nullable: true
+
+    TaskStatusPatchRequest:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          $ref: "#/components/schemas/TaskStatus"
+
+    TaskResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/Task"
+
+    TaskListResponse:
+      type: object
+      additionalProperties: false
+      required: [data, paging]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Task"
+        paging:
+          $ref: "#/components/schemas/Paging"
+
+    # ===== Paging =====
+    Paging:
+      type: object
+      additionalProperties: false
+      required: [limit, offset, total]
+      properties:
+        limit:
+          type: integer
+          format: int32
+          minimum: 1
+        offset:
+          type: integer
+          format: int32
+          minimum: 0
+        total:
+          type: integer
+          format: int64
+          minimum: 0
